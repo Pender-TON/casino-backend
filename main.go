@@ -61,7 +61,7 @@ func main() {
     router.HandleFunc("/getDocument", getDocumentHandler).Methods("GET")
     router.HandleFunc("/verifySignature", verifySignatureHandler).Methods("POST")
 	router.HandleFunc("/dbInit", dbInit).Methods("POST")
-    router.HandleFunc("/getPosition", getPositionHandler).Methods("GET")
+    router.HandleFunc("/getPosition", getPositionHandler).Methods("POST")
 
     http.ListenAndServe(":8080", router)
 }
