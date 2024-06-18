@@ -54,18 +54,39 @@ func main() {
 	err = godotenv.Load()
 	if err != nil {
     	log.Fatal("Error loading .env file")
-  	}	
+  	}
 
     router := mux.NewRouter()
-    router.HandleFunc("/updateField", updateFieldHandler).Methods("POST")
-    router.HandleFunc("/createDocument", createDocumentHandler).Methods("POST")
-    router.HandleFunc("/getDocument", getDocumentHandler).Methods("GET")
-    router.HandleFunc("/verifySignature", verifySignatureHandler).Methods("POST")
-	router.HandleFunc("/dbInit", dbInit).Methods("POST")
-    router.HandleFunc("/getPosition", getPositionHandler).Methods("POST")
+    router.Use(enableCors)
+    router.HandleFunc("/updateField", updateFieldHandler).Methods("POST", "OPTIONS")
+    router.HandleFunc("/createDocument", createDocumentHandler).Methods("POST", "OPTIONS")
+    router.HandleFunc("/getDocument", getDocumentHandler).Methods("GET", "OPTIONS")
+    router.HandleFunc("/verifySignature", verifySignatureHandler).Methods("POST", "OPTIONS")
+	router.HandleFunc("/dbInit", dbInit).Methods("POST", "OPTIONS")
+    router.HandleFunc("/getPosition", getPositionHandler).Methods("POST", "OPTIONS")
 
-    http.ListenAndServe(":8080", router)
+    err = http.ListenAndServeTLS(":443", "cert.pem", "key.pem", router)
+    if err != nil {
+        log.Fatal(err)
+    }
 }
+
+func enableCors(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+        w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+        
+        // Check if the request method is OPTIONS
+        if r.Method == "OPTIONS" {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+        
+        next.ServeHTTP(w, r)
+    })
+}
+
 
 func updateFieldHandler(w http.ResponseWriter, r *http.Request) {
 	type UpdateRequest struct {
