@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -274,8 +274,22 @@ func dbInit(w http.ResponseWriter, r *http.Request) {
 }
 
 func verifySignatureHandler(w http.ResponseWriter, r *http.Request) {
+    // Load .env file
+    err := godotenv.Load()
+    if err != nil {
+        http.Error(w, "Error loading .env file", http.StatusInternalServerError)
+        return
+    }
+
+    // Read the bot token from the environment variables
+    botToken := os.Getenv("BOT_TOKEN")
+    if botToken == "" {
+        http.Error(w, "BOT_TOKEN not set in .env", http.StatusInternalServerError)
+        return
+    }
+
     // Read the body of the request
-    body, err := ioutil.ReadAll(r.Body)
+    body, err := io.ReadAll(r.Body)
     if err != nil {
         http.Error(w, "Error reading request body", http.StatusInternalServerError)
         return
@@ -290,8 +304,12 @@ func verifySignatureHandler(w http.ResponseWriter, r *http.Request) {
 
     // Get the hash from the parsed values
     hash := values.Get("hash")
+    if hash == "" {
+        http.Error(w, "Hash not provided", http.StatusBadRequest)
+        return
+    }
 
-    // Generate the data-check-string
+    // Generate the data-check-string without trailing newline
     var dataCheckString strings.Builder
     keys := make([]string, 0, len(values))
     for key := range values {
@@ -300,42 +318,74 @@ func verifySignatureHandler(w http.ResponseWriter, r *http.Request) {
         }
     }
     sort.Strings(keys)
-    for _, key := range keys {
-        // Ensure that the 'user' field is treated as a single string
+    for i, key := range keys {
         value := values.Get(key)
         if key == "user" {
-            value, _ = url.QueryUnescape(value)
+            // URL decode the user parameter
+            value, err = url.QueryUnescape(value)
+            if err != nil {
+                http.Error(w, "Error decoding user parameter", http.StatusBadRequest)
+                return
+            }
         }
-        dataCheckString.WriteString(fmt.Sprintf("%s=%s\n", key, value))
+        if i > 0 {
+            dataCheckString.WriteString("\n")
+        }
+        dataCheckString.WriteString(fmt.Sprintf("%s=%s", key, value))
     }
 
-    // Print the data-check-string for debugging
-    fmt.Println("Data-check-string:", dataCheckString.String())
-
-    // Replace with your bot's token
-    botToken := os.Getenv("BOT_TOKEN")
-
-    // Generate the secret key
-    secretKeyHMAC := hmac.New(sha256.New, []byte(botToken))
-    secretKeyHMAC.Write([]byte("WebAppData"))
+    // Generate the secret_key using "WebAppData" as key and botToken as message
+    secretKeyHMAC := hmac.New(sha256.New, []byte("WebAppData"))
+    secretKeyHMAC.Write([]byte(botToken))
     secretKey := secretKeyHMAC.Sum(nil)
 
-    // Generate the HMAC-SHA-256 signature of the data-check-string
-    hmacData := hmac.New(sha256.New, secretKey)
-    hmacData.Write([]byte(dataCheckString.String()))
-    dataSignature := hmacData.Sum(nil)
+    // Generate the hash of the data_check_string using the secret_key
+    hashHMAC := hmac.New(sha256.New, secretKey)
+    hashHMAC.Write([]byte(dataCheckString.String()))
+    calculatedHash := hex.EncodeToString(hashHMAC.Sum(nil))
 
-    // Convert the received hash and computed signature to lowercase hex strings for comparison
-    receivedHash, err := hex.DecodeString(hash)
-    if err != nil {
-        http.Error(w, "Error decoding hash", http.StatusInternalServerError)
+    // Compare the hashes
+    if calculatedHash != hash {
+        http.Error(w, "Invalid data", http.StatusUnauthorized)
         return
     }
 
-    // Compare the received hash with the data signature
-    if hmac.Equal(receivedHash, dataSignature) {
-        w.Write([]byte("true"))
-    } else {
-        w.Write([]byte("false"))
+    // Parse dataCheckString into a map
+    dataMap := make(map[string]string)
+    for _, line := range strings.Split(dataCheckString.String(), "\n") {
+        parts := strings.SplitN(line, "=", 2)
+        if len(parts) == 2 {
+            dataMap[parts[0]] = parts[1]
+        }
     }
+
+    // Handle the nested user JSON
+    var user map[string]interface{}
+    if userJSON, ok := dataMap["user"]; ok {
+        err := json.Unmarshal([]byte(userJSON), &user)
+        if err != nil {
+            http.Error(w, "Error parsing user JSON", http.StatusInternalServerError)
+            return
+        }
+        delete(dataMap, "user")
+    }
+
+    // Convert the map to JSON
+    responseMap := make(map[string]interface{})
+    for k, v := range dataMap {
+        responseMap[k] = v
+    }
+    if user != nil {
+        responseMap["user"] = user
+    }
+
+    responseData, err := json.Marshal(responseMap)
+    if err != nil {
+        http.Error(w, "Error generating JSON response", http.StatusInternalServerError)
+        return
+    }
+
+    // Set the response header to application/json
+    w.Header().Set("Content-Type", "application/json")
+    w.Write(responseData)
 }
