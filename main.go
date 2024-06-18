@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -320,6 +321,14 @@ func verifySignatureHandler(w http.ResponseWriter, r *http.Request) {
     sort.Strings(keys)
     for i, key := range keys {
         value := values.Get(key)
+        if key == "auth_date" {
+            intValue, err := strconv.Atoi(value)
+            if err != nil {
+                http.Error(w, "Error converting auth_date to integer", http.StatusBadRequest)
+                return
+            }
+            value = strconv.Itoa(intValue)
+        }
         if key == "user" {
             // URL decode the user parameter
             value, err = url.QueryUnescape(value)
@@ -373,7 +382,16 @@ func verifySignatureHandler(w http.ResponseWriter, r *http.Request) {
     // Convert the map to JSON
     responseMap := make(map[string]interface{})
     for k, v := range dataMap {
-        responseMap[k] = v
+        if k == "auth_date" {
+            intValue, err := strconv.Atoi(v)
+            if err != nil {
+                http.Error(w, "Error converting auth_date to integer", http.StatusBadRequest)
+                return
+            }
+            responseMap[k] = intValue
+        } else {
+            responseMap[k] = v
+        }
     }
     if user != nil {
         responseMap["user"] = user
