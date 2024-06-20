@@ -126,6 +126,12 @@ func tasks(b *gotgbot.Bot, ctx *ext.Context) error {
 	}
 	row4 := []gotgbot.InlineKeyboardButton{
 		{
+			Text:         "[0x Knowledge]",
+			CallbackData: "osaka",
+		},
+	}
+	row5 := []gotgbot.InlineKeyboardButton{
+		{
 			Text:         "Назад",
 			CallbackData: "start",
 		},
@@ -133,11 +139,11 @@ func tasks(b *gotgbot.Bot, ctx *ext.Context) error {
 
     // Create the inline keyboard markup
     inlineKeyboardMarkup := gotgbot.InlineKeyboardMarkup{
-        InlineKeyboard: [][]gotgbot.InlineKeyboardButton{row1, row2, row3, row4},
+        InlineKeyboard: [][]gotgbot.InlineKeyboardButton{row1, row2, row3, row4, row5},
     }
 
 	chatID := ctx.EffectiveChat.Id
-	photoURL := "https://imgur.com/a/euIocv3"
+	photoURL := "https://imgur.com/a/nYMQl3c"
     msg, err := b.SendPhoto(chatID, photoURL, &gotgbot.SendPhotoOpts{
         Caption: os.Getenv("TASKS_MESSAGE"),
 		ReplyMarkup: &inlineKeyboardMarkup,
@@ -154,6 +160,7 @@ func clear(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	_, err := b.DeleteMessage(ctx.EffectiveChat.Id, lastMessageId, nil)
 	if err != nil {
+		start(b, ctx)
 		return fmt.Errorf("failed to delete previous message: %w", err)
 	}
 	return nil
@@ -249,6 +256,21 @@ func twitterHandler(b *gotgbot.Bot, ctx *ext.Context) error {
 	return nil
 }
 
+func osakaHandler(b *gotgbot.Bot, ctx *ext.Context) error {
+	
+	err := clear(b, ctx)
+	if err != nil {
+		return err
+	}
+
+	err = osaka(b, ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func casinoHandler(b *gotgbot.Bot, ctx *ext.Context) error {
 	
 	err := clear(b, ctx)
@@ -280,9 +302,9 @@ func checkMembershipHandler(b *gotgbot.Bot, ctx *ext.Context) error {
     return err
 }
 
-func chatkMembershipHandler(b *gotgbot.Bot, ctx *ext.Context) error {
+func chatMembershipHandler(b *gotgbot.Bot, ctx *ext.Context) error {
     userID := ctx.CallbackQuery.From.Id
-    isMember, err := isUserInChat(b, userID, chatID)
+    isMember, err := isUserInChannel(b, userID, chatID)
     if err != nil {
         return err
     }
@@ -291,6 +313,22 @@ func chatkMembershipHandler(b *gotgbot.Bot, ctx *ext.Context) error {
         _, err = ctx.EffectiveMessage.Reply(b, "Задание выполнено!", nil)
     } else {
         _, err = ctx.EffectiveMessage.Reply(b, "Ты не cостоишь в чате!", nil)
+    }
+
+    return err
+}
+
+func osakaMembershipHandler(b *gotgbot.Bot, ctx *ext.Context) error {
+    userID := ctx.CallbackQuery.From.Id
+    isMember, err := isUserInChannel(b, userID, osakaID)
+    if err != nil {
+        return err
+    }
+
+    if isMember {
+        _, err = ctx.EffectiveMessage.Reply(b, "Задание выполнено!", nil)
+    } else {
+        _, err = ctx.EffectiveMessage.Reply(b, "Подпишись на канал!", nil)
     }
 
     return err

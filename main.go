@@ -91,9 +91,11 @@ func main() {
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("chat"), chatHandler))
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("twitter"), twitterHandler))
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("checkChannel"), checkMembershipHandler))
-    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("checkChat"), chatkMembershipHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("checkChat"), chatMembershipHandler))
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("invite"), inviteHandler))
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("casino"), casinoHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("osaka"), osakaHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("checkOsaka"), osakaMembershipHandler))
   
     // Start receiving updates.
     err = updater.StartPolling(b, &ext.PollingOpts{
@@ -232,7 +234,7 @@ func getDocumentHandler(w http.ResponseWriter, r *http.Request) {
     collection := client.Database("pender-clicks").Collection("clicks-01")
 
     opts := options.Find()
-    opts.SetSort(bson.D{{"count", -1}})
+    opts.SetSort(bson.D{{Key: "count", Value: -1}})
     opts.SetLimit(5)
 
     cursor, err := collection.Find(context.TODO(), bson.D{{}}, opts)
@@ -281,7 +283,7 @@ func getPositionHandler(w http.ResponseWriter, r *http.Request) {
 
     // Query the MongoDB collection and sort the documents in descending order by the 'count' field
     collection := client.Database("pender-clicks").Collection("clicks-01")
-    cursor, err := collection.Find(context.TODO(), bson.M{}, options.Find().SetSort(bson.D{{"count", -1}}))
+    cursor, err := collection.Find(context.TODO(), bson.M{}, options.Find().SetSort(bson.D{{Key: "count", Value: -1}}))
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return

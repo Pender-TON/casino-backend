@@ -22,8 +22,8 @@ func channel(b *gotgbot.Bot, ctx *ext.Context) error {
     }
 	row3 := []gotgbot.InlineKeyboardButton{
 		{
-			Text:         "Главное меню",
-			CallbackData: "start",
+			Text:         "Назад",
+			CallbackData: "tasks",
 		},
 	}
 
@@ -59,8 +59,8 @@ func chat(b *gotgbot.Bot, ctx *ext.Context) error {
     }
 	row3 := []gotgbot.InlineKeyboardButton{
 		{
-			Text:         "Главное меню",
-			CallbackData: "start",
+			Text:         "Назад",
+			CallbackData: "tasks",
 		},
 	}
 
@@ -91,8 +91,8 @@ func twitter(b *gotgbot.Bot, ctx *ext.Context) error {
 	}
 	row2 := []gotgbot.InlineKeyboardButton{
 		{
-			Text:         "Главное меню",
-			CallbackData: "start",
+			Text:         "Назад",
+			CallbackData: "tasks",
 		},
 	}
 
@@ -103,6 +103,44 @@ func twitter(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	chatID := ctx.EffectiveChat.Id
     msg, err := b.SendMessage(chatID, os.Getenv("TWITTER_MSG"), &gotgbot.SendMessageOpts{
+		ReplyMarkup: &inlineKeyboardMarkup,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to send source: %w", err)
+	}
+
+
+	lastMessageId = msg.MessageId
+	return nil
+}
+
+func osaka(b *gotgbot.Bot, ctx *ext.Context) error {
+	row1 := []gotgbot.InlineKeyboardButton{
+		{
+			Text: 	   "[0x_Knowledge]",
+			Url: "https://t.me/knowledge_0x",
+		},
+	}
+	row2 := []gotgbot.InlineKeyboardButton{
+        {
+            Text:         "Проверить",
+            CallbackData: "checkOsaka",
+        },
+    }
+	row3 := []gotgbot.InlineKeyboardButton{
+		{
+			Text:         "Назад",
+			CallbackData: "tasks",
+		},
+	}
+
+    // Create the inline keyboard markup
+    inlineKeyboardMarkup := gotgbot.InlineKeyboardMarkup{
+        InlineKeyboard: [][]gotgbot.InlineKeyboardButton{row1, row2, row3},
+    }
+
+	chatID := ctx.EffectiveChat.Id
+    msg, err := b.SendMessage(chatID, os.Getenv("OSAKA_MSG"), &gotgbot.SendMessageOpts{
 		ReplyMarkup: &inlineKeyboardMarkup,
 	})
 	if err != nil {
