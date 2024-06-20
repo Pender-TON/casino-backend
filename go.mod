@@ -3,6 +3,7 @@ module go-mongo-atlas-backend
 go 1.22.4
 
 require (
+	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.27 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/iancoleman/orderedmap v0.3.0 // indirect

@@ -17,6 +17,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
+	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers/filters/callbackquery"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
@@ -56,6 +60,58 @@ func main() {
     	log.Fatal("Error loading .env file")
   	}
 
+    token := os.Getenv("BOT_TOKEN")
+    if token == "" {
+        panic("TOKEN environment variable is empty")
+    }
+  
+    // Create bot from environment value.
+    b, err := gotgbot.NewBot(token, nil)
+    if err != nil {
+        panic("failed to create new bot: " + err.Error())
+    }
+  
+    // Create updater and dispatcher.
+    dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{
+        // If an error is returned by a handler, log it and continue going.
+        Error: func(b *gotgbot.Bot, ctx *ext.Context, err error) ext.DispatcherAction {
+            log.Println("an error occurred while handling update:", err.Error())
+            return ext.DispatcherActionNoop
+        },
+        MaxRoutines: ext.DefaultMaxRoutines,
+    })
+    updater := ext.NewUpdater(dispatcher, nil)
+  
+    // /start command to introduce the bot
+    dispatcher.AddHandler(handlers.NewCommand("start", start))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("start"), startHandler))
+  
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("tasks"), tasksHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("channel"), channelHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("chat"), chatHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("twitter"), twitterHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("checkChannel"), checkMembershipHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("checkChat"), chatkMembershipHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("invite"), inviteHandler))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("casino"), casinoHandler))
+  
+    // Start receiving updates.
+    err = updater.StartPolling(b, &ext.PollingOpts{
+        DropPendingUpdates: true,
+        GetUpdatesOpts: &gotgbot.GetUpdatesOpts{
+            Timeout: 9,
+            RequestOpts: &gotgbot.RequestOpts{
+                Timeout: time.Second * 10,
+            },
+        },
+    })
+    if err != nil {
+        panic("failed to start polling: " + err.Error())
+    }
+    log.Printf("%s has been started...\n", b.User.Username)
+  
+    
+
     router := mux.NewRouter()
     router.Use(enableCors)
     router.HandleFunc("/updateField", updateFieldHandler).Methods("POST", "OPTIONS")
@@ -65,10 +121,14 @@ func main() {
 	router.HandleFunc("/dbInit", dbInit).Methods("POST", "OPTIONS")
     router.HandleFunc("/getPosition", getPositionHandler).Methods("POST", "OPTIONS")
 
-    err = http.ListenAndServeTLS(":443", "cert.pem", "key.pem", router)
-    if err != nil {
-        log.Fatal(err)
-    }
+    go func() {
+        err = http.ListenAndServeTLS(":443", "cert.pem", "key.pem", router)
+        if err != nil {
+            log.Fatal(err)
+        }
+    }()
+    // Idle, to keep updates coming in, and avoid bot stopping.
+    updater.Idle()
 }
 
 func enableCors(next http.Handler) http.Handler {
